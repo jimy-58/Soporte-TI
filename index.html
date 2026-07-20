@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Control de soporte técnico, tickets y avances de proyectos." />
+    <title>Soporte TI | Control de actividades</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">S</span><span>Soporte TI</span></div>
+      <nav aria-label="Navegación principal">
+        <button class="nav-item active" data-view="dashboard"><span>▦</span>Resumen</button>
+        <button class="nav-item" data-view="tickets"><span>◉</span>Tickets</button>
+        <button class="nav-item" data-view="projects"><span>◇</span>Proyectos</button>
+        <button class="nav-item" data-view="reports"><span>↗</span>Reportes</button>
+      </nav>
+      <p class="sidebar-note">Los datos se almacenan de forma local en este navegador.</p>
+    </aside>
+    <main>
+      <header>
+        <div><p class="eyebrow" id="today"></p><h1 id="view-title">Resumen de actividades</h1></div>
+        <button class="primary" id="new-item">+ Nuevo ticket</button>
+      </header>
+
+      <section id="dashboard" class="view active">
+        <div class="stats" id="stats"></div>
+        <div class="dashboard-grid">
+          <article class="panel"><div class="panel-heading"><h2>Actividad reciente</h2><button class="text-button" data-go="tickets">Ver todos</button></div><div id="recent-list" class="activity-list"></div></article>
+          <article class="panel"><div class="panel-heading"><h2>Distribución por estado</h2></div><div id="status-summary" class="status-summary"></div></article>
+        </div>
+      </section>
+
+      <section id="tickets" class="view">
+        <div class="toolbar"><div class="filters"><select id="ticket-status-filter"><option value="">Todos los estados</option><option>Abierto</option><option>En proceso</option><option>En espera</option><option>Resuelto</option></select><input id="ticket-search" type="search" placeholder="Buscar ticket, usuario o asunto" /></div><button class="secondary" id="export-tickets">Exportar CSV</button></div>
+        <article class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Folio</th><th>Asunto</th><th>Solicitante</th><th>Prioridad</th><th>Estado</th><th>Actualizado</th></tr></thead><tbody id="tickets-table"></tbody></table></div></article>
+      </section>
+
+      <section id="projects" class="view">
+        <div class="toolbar"><p class="subtle">Registra los avances de bases de datos, aplicaciones y automatizaciones.</p><button class="primary" id="new-project">+ Nuevo proyecto</button></div>
+        <div id="projects-grid" class="projects-grid"></div>
+      </section>
+
+      <section id="reports" class="view">
+        <article class="panel report-card"><h2>Reporte de actividades</h2><p>Genera un concentrado de tickets atendidos y avances de proyectos para compartir el estatus del área.</p><div class="report-actions"><label>Desde <input type="date" id="report-from" /></label><label>Hasta <input type="date" id="report-to" /></label><button class="primary" id="download-report">Descargar reporte CSV</button></div></article>
+        <article class="panel"><h2>Vista previa</h2><div id="report-preview" class="report-preview"></div></article>
+      </section>
+    </main>
+
+    <dialog id="ticket-dialog"><form method="dialog" id="ticket-form"><div class="dialog-heading"><h2 id="ticket-dialog-title">Nuevo ticket</h2><button class="icon-button" value="cancel" aria-label="Cerrar">×</button></div><input type="hidden" id="ticket-id" /><div class="form-grid"><label>Asunto<input id="ticket-subject" required maxlength="100" placeholder="Ej. Configuración de correo" /></label><label>Solicitante<input id="ticket-requester" required maxlength="80" placeholder="Nombre del colaborador" /></label><label>Área<input id="ticket-area" maxlength="80" placeholder="Ej. Finanzas" /></label><label>Prioridad<select id="ticket-priority"><option>Media</option><option>Alta</option><option>Baja</option><option>Crítica</option></select></label><label>Estado<select id="ticket-status"><option>Abierto</option><option>En proceso</option><option>En espera</option><option>Resuelto</option></select></label><label>Fecha<input id="ticket-date" type="date" required /></label><label class="full">Detalle / actividad realizada<textarea id="ticket-notes" rows="4" placeholder="Describe el requerimiento y el trabajo realizado."></textarea></label></div><div class="dialog-actions"><button class="secondary" value="cancel">Cancelar</button><button class="primary" value="default" id="save-ticket">Guardar ticket</button></div></form></dialog>
+
+    <dialog id="project-dialog"><form method="dialog" id="project-form"><div class="dialog-heading"><h2>Nuevo proyecto</h2><button class="icon-button" value="cancel" aria-label="Cerrar">×</button></div><input type="hidden" id="project-id" /><div class="form-grid"><label>Nombre del proyecto<input id="project-name" required maxlength="100" /></label><label>Tipo<select id="project-type"><option>Base de datos</option><option>Aplicación</option><option>Automatización Excel</option><option>Infraestructura</option><option>Otro</option></select></label><label>Responsable<input id="project-owner" maxlength="80" /></label><label>Avance (%)<input id="project-progress" type="number" min="0" max="100" value="0" required /></label><label>Estado<select id="project-status"><option>Planeación</option><option>En desarrollo</option><option>En pruebas</option><option>Completado</option><option>En espera</option></select></label><label>Fecha estimada<input id="project-date" type="date" /></label><label class="full">Último avance<textarea id="project-update" rows="4" placeholder="Indica qué se completó, pendientes y próximos pasos."></textarea></label></div><div class="dialog-actions"><button class="secondary" value="cancel">Cancelar</button><button class="primary" value="default" id="save-project">Guardar proyecto</button></div></form></dialog>
+    <script src="app.js"></script>
+  </body>
+</html>
