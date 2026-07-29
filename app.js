@@ -51,8 +51,10 @@ function render() { renderStats(); renderDashboard(); renderTickets(); renderPro
 
 async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*') .order('Folio', { ascending: false }); if (error) { console.error('❌ Error cargando tickets:', error); return; } tickets = (data || []).map(t => ({ id: t.id, number: Number(String(t.Folio).replace('TI-', '')) || 0, company: t.Empresa || '', subject: t.Asunto || '', requester: t.Solicitante || '', area: t.Area || '', priority: t.Prioridad || 'Media', status: t.Estado || 'Abierto', date: t.Fecha || today, notes: t.Detalle || '' })); render(); }
 
-async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*'); console.log('📦 Datos crudos desde Supabase:', data); if (error) { console.error('❌ Error cargando tickets:', error); return; } 
-
+async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*'); //console.log('📦 Datos crudos desde Supabase:', data); if (error) { console.error('❌ Error cargando tickets:', error); return; } 
+console.table(data);
+console.log(data[0]);
+                                          
 function openTicket(item) { const f=$('#ticket-form'); f.reset(); $('#ticket-id').value=item?.id||''; $('#ticket-dialog-title').textContent=item?'Editar ticket':'Nuevo ticket'; $('#ticket-date').value=item?.date||today; ['subject','requester','area','priority','status','notes'].forEach(k=> $(`#ticket-${k}`).value=item?.[k]|| (k==='priority'?'Media':k==='status'?'Abierto':'')); $('#ticket-dialog').showModal(); }
 function openProject(item) { const f=$('#project-form'); f.reset(); $('#project-id').value=item?.id||''; ['name','type','owner','progress','status','date','update'].forEach(k=> $(`#project-${k}`).value=item?.[k] ?? (k==='type'?'Base de datos':k==='progress'?0:k==='status'?'Planeación':'')); $('#project-dialog').showModal(); }
 function escapeHtml(v='') { const d=document.createElement('div'); d.textContent=v; return d.innerHTML; }
