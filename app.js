@@ -51,6 +51,8 @@ function render() { renderStats(); renderDashboard(); renderTickets(); renderPro
 
 async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*') .order('Folio', { ascending: false }); if (error) { console.error('❌ Error cargando tickets:', error); return; } tickets = (data || []).map(t => ({ id: t.id, number: Number(String(t.Folio).replace('TI-', '')) || 0, company: t.Empresa || '', subject: t.Asunto || '', requester: t.Solicitante || '', area: t.Area || '', priority: t.Prioridad || 'Media', status: t.Estado || 'Abierto', date: t.Fecha || today, notes: t.Detalle || '' })); render(); }
 
+console.log("Tickets cargados:", tickets);
+
 async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*'); //console.log('📦 Datos crudos desde Supabase:', data); if (error) { console.error('❌ Error cargando tickets:', error); return; } 
 console.table(data);
 console.log(data[0]);
