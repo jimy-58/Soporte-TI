@@ -10,6 +10,26 @@ const supabase = window.supabase.createClient(
     SUPABASE_URL,
     SUPABASE_KEY
 );
+// ==========================================
+// Prueba de conexión con Supabase
+// ==========================================
+
+async function probarConexion() {
+    const { data, error } = await supabase
+        .from("tickets")
+        .select("*")
+        .limit(1);
+
+    if (error) {
+        console.error("❌ Error de conexión:", error);
+    } else {
+        console.log("✅ Conexión exitosa con Supabase");
+        console.log(data);
+    }
+}
+
+probarConexion();
+
 const $ = (s) => document.querySelector(s);
 const today = new Date().toISOString().slice(0, 10);
 const read = (key, fallback) => JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
