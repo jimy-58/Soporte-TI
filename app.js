@@ -32,10 +32,12 @@ probarConexion();
 
 const $ = (s) => document.querySelector(s);
 const today = new Date().toISOString().slice(0, 10);
-const read = (key, fallback) => JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
-let tickets = read('soporte-ti-tickets', []);
-let projects = read('soporte-ti-projects', []);
-const save = () => { localStorage.setItem('soporte-ti-tickets', JSON.stringify(tickets)); localStorage.setItem('soporte-ti-projects', JSON.stringify(projects)); };
+// const read = (key, fallback) => JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+let tickets = [];
+let projects = [];
+// Temporalmente desactivamos localStorage 
+const save = () => {};
+//const save = () => { localStorage.setItem('soporte-ti-tickets', JSON.stringify(tickets)); localStorage.setItem('soporte-ti-projects', JSON.stringify(projects)); };
 const fmt = (date) => date ? new Intl.DateTimeFormat('es-MX', { day:'2-digit', month:'short', year:'numeric' }).format(new Date(`${date}T12:00:00`)) : 'Sin fecha';
 const code = (n) => `TI-${String(n).padStart(4, '0')}`;
 const className = (value) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s/g,'-');
