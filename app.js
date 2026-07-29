@@ -1,3 +1,15 @@
+// ==========================================
+// Configuración de Supabase
+// ==========================================
+
+const SUPABASE_URL = "https://nuagglgfcdikrnoybytj.supabase.co";
+
+const SUPABASE_KEY = "sb_publishable_coMxmvx0xr1aVXxqustQew_lYc3lHRv";
+
+const supabase = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
 const $ = (s) => document.querySelector(s);
 const today = new Date().toISOString().slice(0, 10);
 const read = (key, fallback) => JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
