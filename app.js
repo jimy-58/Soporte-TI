@@ -6,7 +6,7 @@ const SUPABASE_URL = "https://nuagglgfcdikrnoybytj.supabase.co";
 
 const SUPABASE_KEY = "sb_publishable_coMxmvx0xr1aVXxqustQew_lYc3lHRv";
 
-const supabase = window.supabase.createClient(
+const supabaseClient = window.supabase.createClient(
     SUPABASE_URL,
     SUPABASE_KEY
 );
@@ -15,7 +15,7 @@ const supabase = window.supabase.createClient(
 // ==========================================
 
 async function probarConexion() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from("tickets")
         .select("*")
         .limit(1);
