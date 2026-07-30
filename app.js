@@ -54,8 +54,8 @@ async function loadTicketsFromSupabase() { const { data, error } = await supabas
 console.log("Tickets cargados:", tickets);
 
 //async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*'); //console.log('📦 Datos crudos desde Supabase:', data); if (error) { console.error('❌ Error cargando tickets:', error); return; } 
-console.table(data);
-console.log(data[0]);
+//console.table(data);
+//console.log(data[0]);
                                           
 function openTicket(item) { const f=$('#ticket-form'); f.reset(); $('#ticket-id').value=item?.id||''; $('#ticket-dialog-title').textContent=item?'Editar ticket':'Nuevo ticket'; $('#ticket-date').value=item?.date||today; ['subject','requester','area','priority','status','notes'].forEach(k=> $(`#ticket-${k}`).value=item?.[k]|| (k==='priority'?'Media':k==='status'?'Abierto':'')); $('#ticket-dialog').showModal(); }
 function openProject(item) { const f=$('#project-form'); f.reset(); $('#project-id').value=item?.id||''; ['name','type','owner','progress','status','date','update'].forEach(k=> $(`#project-${k}`).value=item?.[k] ?? (k==='type'?'Base de datos':k==='progress'?0:k==='status'?'Planeación':'')); $('#project-dialog').showModal(); }
