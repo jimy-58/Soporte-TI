@@ -53,6 +53,35 @@ async function loadTicketsFromSupabase() { const { data, error } = await supabas
 
 console.log("Tickets cargados:", tickets);
 
+async function loadProjectsFromSupabase() {
+    const { data, error } = await supabaseClient
+        .from("projects")
+        .select("*")
+        .order("Proyecto", { ascending: true });
+
+    if (error) {
+        console.error("❌ Error cargando proyectos:", error);
+        return;
+    }
+
+    console.log("📦 Proyectos desde Supabase:", data);
+
+    projects = (data || []).map(p => ({
+        project: p.Proyecto || "",
+        company: p.Empresa || "",
+        type: p.Tipo || "",
+        owner: p.Responsable || "",
+        progress: Number(p.Avance) || 0,
+        status: p.Estado || "",
+        eta: p["Fecha estimada"] || "",
+        update: p["Último avance"] || ""
+    }));
+
+    console.log("Proyectos cargados:", projects);
+
+    render();
+}
+
 //async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*'); //console.log('📦 Datos crudos desde Supabase:', data); if (error) { console.error('❌ Error cargando tickets:', error); return; } 
 //console.table(data);
 //console.log(data[0]);
@@ -85,4 +114,8 @@ $('#download-report').addEventListener('click',event=>{event.stopImmediatePropag
 // resto del código... 
 //                                         }
 //loadTicketsFromSupabase();
-window.addEventListener('DOMContentLoaded', () => { loadTicketsFromSupabase(); });
+//window.addEventListener('DOMContentLoaded', () => { loadTicketsFromSupabase(); });
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadTicketsFromSupabase();
+    await loadProjectsFromSupabase();
+});
