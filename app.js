@@ -84,4 +84,5 @@ $('#download-report').addEventListener('click',event=>{event.stopImmediatePropag
 //render();
 // resto del código... 
                                          }
-loadTicketsFromSupabase();
+//loadTicketsFromSupabase();
+window.addEventListener('DOMContentLoaded', () => { loadTicketsFromSupabase(); });
