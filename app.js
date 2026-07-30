@@ -131,7 +131,36 @@ $('#ticket-form').addEventListener('submit', async e => {
     await loadTicketsFromSupabase();
 });
 
-$('#project-form').addEventListener('submit',e=>{e.preventDefault(); const id=$('#project-id').value; const item={id:id||crypto.randomUUID(),name:$('#project-name').value.trim(),type:$('#project-type').value,owner:$('#project-owner').value.trim(),progress:Math.min(100,Math.max(0,Number($('#project-progress').value))),status:$('#project-status').value,date:$('#project-date').value,update:$('#project-update').value.trim()}; projects=id?projects.map(x=>x.id===id?item:x):[...projects,item]; save(); $('#project-dialog').close(); render(); });
+//$('#project-form').addEventListener('submit',e=>{e.preventDefault(); const id=$('#project-id').value; const item={id:id||crypto.randomUUID(),name:$('#project-name').value.trim(),type:$('#project-type').value,owner:$('#project-owner').value.trim(),progress:Math.min(100,Math.max(0,Number($('#project-progress').value))),status:$('#project-status').value,date:$('#project-date').value,update:$('#project-update').value.trim()}; projects=id?projects.map(x=>x.id===id?item:x):[...projects,item]; save(); $('#project-dialog').close(); render(); });
+$('#project-form').addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const nuevoProyecto = {
+        Proyecto: $('#project-name').value.trim(),
+        Empresa: $('#project-company').value,
+        Tipo: $('#project-type').value,
+        Responsable: $('#project-owner').value.trim(),
+        Avance: $('#project-progress').value + '%',
+        Estado: $('#project-status').value,
+        "Fecha estimada": $('#project-date').value,
+        "Último avance": $('#project-update').value.trim()
+    };
+
+    const { error } = await supabaseClient
+        .from('projects')
+        .insert([nuevoProyecto]);
+
+    if (error) {
+        console.error('Error guardando proyecto:', error);
+        alert('Error al guardar el proyecto');
+        return;
+    }
+
+    $('#project-dialog').close();
+
+    await loadProjectsFromSupabase();
+});
+
 $('#ticket-search').oninput=renderTickets; $('#ticket-status-filter').onchange=renderTickets; ['report-from','report-to'].forEach(id=>$( `#${id}`).addEventListener('change',renderReport));
 $('#export-tickets').onclick=()=>download(`tickets-${today}.csv`,csv([['Folio','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle'],...tickets.map(x=>[code(x.number),x.subject,x.requester,x.area,x.priority,x.status,x.date,x.notes])]));
 $('#download-report').onclick=()=>{const from=$('#report-from').value,to=$('#report-to').value;const selected=tickets.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));const rows=[['REPORTE DE ACTIVIDADES TI'],['Periodo',`${from||'Inicio'} a ${to||'Hoy'}`],[],['TICKETS'],['Folio','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle'],...selected.map(x=>[code(x.number),x.subject,x.requester,x.area,x.priority,x.status,x.date,x.notes]),[],['PROYECTOS'],['Proyecto','Tipo','Responsable','Avance','Estado','Fecha estimada','Último avance'],...projects.map(x=>[x.name,x.type,x.owner,`${x.progress}%`,x.status,x.date,x.update])];download(`reporte-soporte-ti-${today}.csv`,csv(rows));};
