@@ -97,7 +97,40 @@ $('#today').textContent = new Intl.DateTimeFormat('es-MX',{weekday:'long', day:'
 document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav-item,.view').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $(`#${b.dataset.view}`).classList.add('active'); $('#view-title').textContent={dashboard:'Resumen de actividades',tickets:'Tickets de soporte',projects:'Avance de proyectos',reports:'Reportes'}[b.dataset.view]; $('#new-item').style.display=b.dataset.view==='projects'?'none':''; });
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>document.querySelector(`[data-view="${b.dataset.go}"]`).click());
 $('#new-item').onclick=()=>openTicket(); $('#new-project').onclick=()=>openProject();
-$('#ticket-form').addEventListener('submit',e=>{e.preventDefault(); const id=$('#ticket-id').value; const item={id:id||crypto.randomUUID(),number:id?tickets.find(x=>x.id===id).number:Math.max(0,...tickets.map(x=>x.number))+1,subject:$('#ticket-subject').value.trim(),requester:$('#ticket-requester').value.trim(),area:$('#ticket-area').value.trim(),priority:$('#ticket-priority').value,status:$('#ticket-status').value,date:$('#ticket-date').value,notes:$('#ticket-notes').value.trim()}; tickets=id?tickets.map(x=>x.id===id?item:x):[...tickets,item]; save(); $('#ticket-dialog').close(); render(); });
+
+//$('#ticket-form').addEventListener('submit',e=>{e.preventDefault(); const id=$('#ticket-id').value; const item={id:id||crypto.randomUUID(),number:id?tickets.find(x=>x.id===id).number:Math.max(0,...tickets.map(x=>x.number))+1,subject:$('#ticket-subject').value.trim(),requester:$('#ticket-requester').value.trim(),area:$('#ticket-area').value.trim(),priority:$('#ticket-priority').value,status:$('#ticket-status').value,date:$('#ticket-date').value,notes:$('#ticket-notes').value.trim()}; tickets=id?tickets.map(x=>x.id===id?item:x):[...tickets,item]; save(); $('#ticket-dialog').close(); render(); });
+$('#ticket-form').addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const folio = `TI-${String(tickets.length + 1).padStart(4, '0')}`;
+
+    const nuevoTicket = {
+        Folio: folio,
+        Empresa: $('#ticket-company').value,
+        Asunto: $('#ticket-subject').value.trim(),
+        Solicitante: $('#ticket-requester').value.trim(),
+        Área: $('#ticket-area').value.trim(),
+        Prioridad: $('#ticket-priority').value,
+        Estado: $('#ticket-status').value,
+        Fecha: $('#ticket-date').value,
+        Detalle: $('#ticket-notes').value.trim()
+    };
+
+    const { error } = await supabaseClient
+        .from('tickets')
+        .insert([nuevoTicket]);
+
+    if (error) {
+        console.error('Error guardando ticket:', error);
+        alert('Error al guardar ticket');
+        return;
+    }
+
+    $('#ticket-dialog').close();
+
+    await loadTicketsFromSupabase();
+});
+
 $('#project-form').addEventListener('submit',e=>{e.preventDefault(); const id=$('#project-id').value; const item={id:id||crypto.randomUUID(),name:$('#project-name').value.trim(),type:$('#project-type').value,owner:$('#project-owner').value.trim(),progress:Math.min(100,Math.max(0,Number($('#project-progress').value))),status:$('#project-status').value,date:$('#project-date').value,update:$('#project-update').value.trim()}; projects=id?projects.map(x=>x.id===id?item:x):[...projects,item]; save(); $('#project-dialog').close(); render(); });
 $('#ticket-search').oninput=renderTickets; $('#ticket-status-filter').onchange=renderTickets; ['report-from','report-to'].forEach(id=>$( `#${id}`).addEventListener('change',renderReport));
 $('#export-tickets').onclick=()=>download(`tickets-${today}.csv`,csv([['Folio','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle'],...tickets.map(x=>[code(x.number),x.subject,x.requester,x.area,x.priority,x.status,x.date,x.notes])]));
