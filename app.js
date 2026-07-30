@@ -49,7 +49,7 @@ function renderProjects() { $('#projects-grid').innerHTML = projects.length ? pr
 function renderReport() { const from=$('#report-from').value, to=$('#report-to').value; const filtered=tickets.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)); const resolved=filtered.filter(x=>x.status==='Resuelto').length; $('#report-preview').innerHTML=`<b>${filtered.length}</b> tickets registrados${from||to ? ' en el periodo seleccionado':''}; <b>${resolved}</b> resueltos y <b>${projects.filter(x=>x.status!=='Completado').length}</b> proyectos activos.<br><br>El archivo incluye los tickets del periodo y el estado actual de todos los proyectos.`; }
 function render() { renderStats(); renderDashboard(); renderTickets(); renderProjects(); renderReport(); }
 
-async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*') .order('Folio', { ascending: false }); if (error) { console.error('❌ Error cargando tickets:', error); return; } tickets = (data || []).map(t => ({ id: t.id, number: Number(String(t.Folio).replace('TI-', '')) || 0, company: t.Empresa || '', subject: t.Asunto || '', requester: t.Solicitante || '', area: t.Area || '', priority: t.Prioridad || 'Media', status: t.Estado || 'Abierto', date: t.Fecha || today, notes: t.Detalle || '' })); render(); }
+async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*') .order('Folio', { ascending: false }); if (error) { console.error('❌ Error cargando tickets:', error); return; } tickets = (data || []).map(t => ({ id: t.id, number: Number(String(t.Folio).replace('TI-', '')) || 0, company: t.Empresa || '', subject: t.Asunto || '', requester: t.Solicitante || '', area: t['Área'] || '', priority: t.Prioridad || 'Media', status: t.Estado || 'Abierto', date: t.Fecha || today, notes: t.Detalle || '' })); render(); }
 
 console.log("Tickets cargados:", tickets);
 
@@ -83,6 +83,6 @@ $('#export-tickets').addEventListener('click',event=>{event.stopImmediatePropaga
 $('#download-report').addEventListener('click',event=>{event.stopImmediatePropagation();const from=$('#report-from').value,to=$('#report-to').value,selected=tickets.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));const rows=[['REPORTE DE ACTIVIDADES TI'],['Periodo',`${from||'Inicio'} a ${to||'Hoy'}`],[],['TICKETS'],['Folio','Empresa','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle'],...selected.map(x=>[code(x.number),x.company||'',x.subject,x.requester,x.area,x.priority,x.status,x.date,x.notes]),[],['PROYECTOS'],['Proyecto','Empresa','Tipo','Responsable','Avance','Estado','Fecha estimada','Último avance'],...projects.map(x=>[x.name,x.company||'',x.type,x.owner,`${x.progress}%`,x.status,x.date,x.update])];download(`reporte-soporte-ti-${today}.csv`,csv(rows));},{capture:true});
 //render();
 // resto del código... 
-                                         }
+//                                         }
 //loadTicketsFromSupabase();
 window.addEventListener('DOMContentLoaded', () => { loadTicketsFromSupabase(); });
