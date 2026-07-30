@@ -66,12 +66,13 @@ async function loadProjectsFromSupabase() {
 
     console.log("📦 Proyectos desde Supabase:", data);
 
-    projects = (data || []).map(p => ({
-        project: p.Proyecto || "",
+    projects = (data || []).map((p, index) => ({
+        id: String(index + 1),
+        name: p.Proyecto || "",
         company: p.Empresa || "",
         type: p.Tipo || "",
         owner: p.Responsable || "",
-        progress: Number(p.Avance) || 0,
+        progress: parseInt(String(p.Avance).replace("%", "")) || 0,
         status: p.Estado || "",
         eta: p["Fecha estimada"] || "",
         update: p["Último avance"] || ""
