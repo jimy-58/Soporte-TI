@@ -49,7 +49,7 @@ function renderProjects() { $('#projects-grid').innerHTML = projects.length ? pr
 function renderReport() { const from=$('#report-from').value, to=$('#report-to').value; const filtered=tickets.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)); const resolved=filtered.filter(x=>x.status==='Resuelto').length; $('#report-preview').innerHTML=`<b>${filtered.length}</b> tickets registrados${from||to ? ' en el periodo seleccionado':''}; <b>${resolved}</b> resueltos y <b>${projects.filter(x=>x.status!=='Completado').length}</b> proyectos activos.<br><br>El archivo incluye los tickets del periodo y el estado actual de todos los proyectos.`; }
 function render() { renderStats(); renderDashboard(); renderTickets(); renderProjects(); renderReport(); }
 
-async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*') .order('Folio', { ascending: false }); if (error) { console.error('❌ Error cargando tickets:', error); return; } tickets = (data || []).map(t => ({ id: t.id, number: Number(String(t.Folio).replace('TI-', '')) || 0, company: t.Empresa || '', subject: t.Asunto || '', requester: t.Solicitante || '', area: t['Área'] || '', priority: t.Prioridad || 'Media', status: t.Estado || 'Abierto', date: t.Fecha || today, notes: t.Detalle || '' })); render(); }
+async function loadTicketsFromSupabase() { const { data, error } = await supabaseClient .from('tickets') .select('*') .order('Folio', { ascending: false }); if (error) { console.error('❌ Error cargando tickets:', error); return; } tickets = (data || []).map(t => ({ id: t.Folio, number: Number(String(t.Folio).replace('TI-', '')) || 0, company: t.Empresa || '', subject: t.Asunto || '', requester: t.Solicitante || '', area: t['Área'] || '', priority: t.Prioridad || 'Media', status: t.Estado || 'Abierto', date: t.Fecha || today, notes: t.Detalle || '' })); render(); }
 
 console.log("Tickets cargados:", tickets);
 
@@ -66,8 +66,8 @@ async function loadProjectsFromSupabase() {
 
     console.log("📦 Proyectos desde Supabase:", data);
 
-    projects = (data || []).map((p, index) => ({
-        id: String(index + 1),
+    projects = (data || []).map(p => ({
+        id: p.Proyecto,
         name: p.Proyecto || "",
         company: p.Empresa || "",
         type: p.Tipo || "",
@@ -175,6 +175,55 @@ $('#export-tickets').addEventListener('click',event=>{event.stopImmediatePropaga
 $('#download-report').addEventListener('click',event=>{event.stopImmediatePropagation();const from=$('#report-from').value,to=$('#report-to').value,selected=tickets.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));const rows=[['REPORTE DE ACTIVIDADES TI'],['Periodo',`${from||'Inicio'} a ${to||'Hoy'}`],[],['TICKETS'],['Folio','Empresa','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle'],...selected.map(x=>[code(x.number),x.company||'',x.subject,x.requester,x.area,x.priority,x.status,x.date,x.notes]),[],['PROYECTOS'],['Proyecto','Empresa','Tipo','Responsable','Avance','Estado','Fecha estimada','Último avance'],...projects.map(x=>[x.name,x.company||'',x.type,x.owner,`${x.progress}%`,x.status,x.date,x.update])];download(`reporte-soporte-ti-${today}.csv`,csv(rows));},{capture:true});
 let currentRole = null;
 
+function addHistoryFields() {
+    const ticketLabel = document.createElement('label');
+    ticketLabel.className = 'full';
+    ticketLabel.innerHTML = 'Nueva observación<textarea id="ticket-observation" rows="3" placeholder="Agrega una actualización; se guardará con fecha y hora."></textarea><div class="history-list" id="ticket-history"></div>';
+    $('#ticket-notes').closest('label').after(ticketLabel);
+    const projectLabel = document.createElement('label');
+    projectLabel.className = 'full';
+    projectLabel.innerHTML = 'Nueva observación<textarea id="project-observation" rows="3" placeholder="Registra el avance de hoy; se guardará con fecha y hora."></textarea><div class="history-list" id="project-history"></div>';
+    $('#project-update').closest('label').after(projectLabel);
+}
+
+async function loadHistory(table, foreignKey, recordId, target) {
+    if (!recordId) { $(target).innerHTML = ''; return; }
+    const { data, error } = await supabaseClient.from(table).select('comment,created_at').eq(foreignKey, recordId).order('created_at', { ascending: false });
+    if (error) { $(target).innerHTML = '<small>El historial estará disponible al crear las tablas de observaciones.</small>'; return; }
+    $(target).innerHTML = data.length ? `<b>Historial</b>${data.map(row => `<article><small>${fmt(row.created_at.slice(0,10))} · ${new Date(row.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</small><p>${escapeHtml(row.comment)}</p></article>`).join('')}` : '<small>Aún no hay observaciones.</small>';
+}
+
+const baseOpenTicket = openTicket;
+openTicket = async item => { baseOpenTicket(item); $('#ticket-company').value = item?.company || ''; $('#ticket-observation').value = ''; await loadHistory('ticket_updates', 'ticket_folio', item?.id, '#ticket-history'); };
+const baseOpenProject = openProject;
+openProject = async item => { baseOpenProject(item); $('#project-company').value = item?.company || ''; $('#project-date').value = item?.eta || item?.date || ''; $('#project-observation').value = ''; await loadHistory('project_updates', 'project_name', item?.id, '#project-history'); };
+
+async function saveTicket(event) {
+    event.preventDefault();
+    const originalFolio = $('#ticket-id').value;
+    const folio = originalFolio || `TI-${String(Math.max(0,...tickets.map(ticket=>ticket.number))+1).padStart(4,'0')}`;
+    const record = { Folio: folio, Empresa: $('#ticket-company').value, Asunto: $('#ticket-subject').value.trim(), Solicitante: $('#ticket-requester').value.trim(), Área: $('#ticket-area').value.trim(), Prioridad: $('#ticket-priority').value, Estado: $('#ticket-status').value, Fecha: $('#ticket-date').value, Detalle: $('#ticket-notes').value.trim() };
+    const request = originalFolio ? supabaseClient.from('tickets').update(record).eq('Folio', originalFolio) : supabaseClient.from('tickets').insert([record]);
+    const { error } = await request;
+    if (error) { alert('Error al guardar ticket'); console.error(error); return; }
+    const comment = $('#ticket-observation').value.trim();
+    if (comment) await supabaseClient.from('ticket_updates').insert([{ ticket_folio: folio, comment }]);
+    $('#ticket-dialog').close(); await loadTicketsFromSupabase();
+}
+
+async function saveProject(event) {
+    event.preventDefault();
+    const originalName = $('#project-id').value;
+    const name = $('#project-name').value.trim();
+    const record = { Proyecto: name, Empresa: $('#project-company').value, Tipo: $('#project-type').value, Responsable: $('#project-owner').value.trim(), Avance: `${$('#project-progress').value}%`, Estado: $('#project-status').value, 'Fecha estimada': $('#project-date').value, 'Último avance': $('#project-update').value.trim() };
+    const request = originalName ? supabaseClient.from('projects').update(record).eq('Proyecto', originalName) : supabaseClient.from('projects').insert([record]);
+    const { error } = await request;
+    if (error) { alert('Error al guardar proyecto'); console.error(error); return; }
+    const comment = $('#project-observation').value.trim();
+    if (comment) await supabaseClient.from('project_updates').insert([{ project_name: name, comment }]);
+    $('#project-dialog').close(); await loadProjectsFromSupabase();
+}
+
 function mountLogin() {
     document.head.insertAdjacentHTML('beforeend', '<style>.login-screen[hidden]{display:none}</style>');
     document.head.insertAdjacentHTML('beforeend', '<style>.login-screen{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:linear-gradient(135deg,#0d1b32,#1e3c70);padding:22px}.login-card{width:min(420px,100%);padding:34px;background:#fff;border-radius:16px;box-shadow:0 24px 70px #06112480}.login-brand{display:flex;align-items:center;gap:11px;color:#12213b;font:600 20px Outfit}.login-brand small{display:block;color:#6c778b;font:400 12px DM Sans;margin-top:3px}.login-card h1{margin:29px 0 5px}.login-card p{color:#6c778b;margin:0 0 22px}.login-card label{display:grid;gap:6px;color:#536078;font-size:13px;font-weight:600;margin:14px 0}.login-card .primary{width:100%;margin-top:9px}.login-error{color:#c23e4c!important;min-height:18px;margin:3px 0 0!important;font-size:13px}.logout-button{margin-left:auto}.is-supervisor #new-item,.is-supervisor #new-project{display:none}.is-supervisor .project-card,.is-supervisor tr[data-id]{cursor:default}</style>');
@@ -213,6 +262,9 @@ async function applySession(session) {
 
 window.addEventListener('DOMContentLoaded', async () => {
     mountLogin();
+    addHistoryFields();
+    document.head.insertAdjacentHTML('beforeend', '<style>.history-list{margin-top:10px;padding:10px;background:#f5f7fb;border-radius:7px;max-height:175px;overflow:auto}.history-list b,.history-list small{font-size:12px;color:#536078}.history-list article{padding:8px 0;border-bottom:1px solid #e5eaf1}.history-list article:last-child{border:0}.history-list p{margin:3px 0 0;font-weight:400;color:#172033}</style>');
+    document.addEventListener('submit', event => { if (event.target.id === 'ticket-form') { event.stopImmediatePropagation(); saveTicket(event); } if (event.target.id === 'project-form') { event.stopImmediatePropagation(); saveProject(event); } }, true);
     const { data: { session } } = await supabaseClient.auth.getSession();
     await applySession(session);
     supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => applySession(session), 0); });
