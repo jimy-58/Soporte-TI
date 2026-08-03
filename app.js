@@ -224,6 +224,34 @@ async function saveProject(event) {
     $('#project-dialog').close(); await loadProjectsFromSupabase();
 }
 
+async function observationMap(table, foreignKey) {
+    const { data, error } = await supabaseClient.from(table).select(`${foreignKey},comment,created_at`).order('created_at', { ascending: true });
+    if (error) { console.error(`Error cargando ${table}:`, error); return new Map(); }
+    return data.reduce((map, row) => {
+        const entry = `${fmt(row.created_at.slice(0, 10))} ${new Date(row.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}: ${row.comment}`;
+        map.set(row[foreignKey], [...(map.get(row[foreignKey]) || []), entry].join('\n'));
+        return map;
+    }, new Map());
+}
+
+function setupCsvExports() {
+    const ticketsButton = $('#export-tickets');
+    ticketsButton.replaceWith(ticketsButton.cloneNode(true));
+    $('#export-tickets').onclick = async () => {
+        const histories = await observationMap('ticket_updates', 'ticket_folio');
+        download(`tickets-${today}.csv`, csv([['Folio','Empresa','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle','Observaciones'], ...tickets.map(ticket => [code(ticket.number),ticket.company||'',ticket.subject,ticket.requester,ticket.area,ticket.priority,ticket.status,ticket.date,ticket.notes,histories.get(ticket.id)||''])]));
+    };
+    const reportButton = $('#download-report');
+    reportButton.replaceWith(reportButton.cloneNode(true));
+    $('#download-report').onclick = async () => {
+        const from = $('#report-from').value, to = $('#report-to').value;
+        const selectedTickets = tickets.filter(ticket => (!from || ticket.date >= from) && (!to || ticket.date <= to));
+        const [ticketHistories, projectHistories] = await Promise.all([observationMap('ticket_updates', 'ticket_folio'), observationMap('project_updates', 'project_name')]);
+        const rows = [['REPORTE DE ACTIVIDADES TI'],['Periodo',`${from||'Inicio'} a ${to||'Hoy'}`],[],['TICKETS'],['Folio','Empresa','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle','Observaciones'],...selectedTickets.map(ticket=>[code(ticket.number),ticket.company||'',ticket.subject,ticket.requester,ticket.area,ticket.priority,ticket.status,ticket.date,ticket.notes,ticketHistories.get(ticket.id)||'']),[],['PROYECTOS'],['Proyecto','Empresa','Tipo','Responsable','Avance','Estado','Fecha estimada','Último avance','Observaciones'],...projects.map(project=>[project.name,project.company||'',project.type,project.owner,`${project.progress}%`,project.status,project.eta||project.date,project.update,projectHistories.get(project.id)||''])];
+        download(`reporte-soporte-ti-${today}.csv`, csv(rows));
+    };
+}
+
 function mountLogin() {
     document.head.insertAdjacentHTML('beforeend', '<style>.login-screen[hidden]{display:none}</style>');
     document.head.insertAdjacentHTML('beforeend', '<style>.login-screen{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:linear-gradient(135deg,#0d1b32,#1e3c70);padding:22px}.login-card{width:min(420px,100%);padding:34px;background:#fff;border-radius:16px;box-shadow:0 24px 70px #06112480}.login-brand{display:flex;align-items:center;gap:11px;color:#12213b;font:600 20px Outfit}.login-brand small{display:block;color:#6c778b;font:400 12px DM Sans;margin-top:3px}.login-card h1{margin:29px 0 5px}.login-card p{color:#6c778b;margin:0 0 22px}.login-card label{display:grid;gap:6px;color:#536078;font-size:13px;font-weight:600;margin:14px 0}.login-card .primary{width:100%;margin-top:9px}.login-error{color:#c23e4c!important;min-height:18px;margin:3px 0 0!important;font-size:13px}.logout-button{margin-left:auto}.is-supervisor #new-item,.is-supervisor #new-project{display:none}.is-supervisor .project-card,.is-supervisor tr[data-id]{cursor:default}</style>');
@@ -263,6 +291,7 @@ async function applySession(session) {
 window.addEventListener('DOMContentLoaded', async () => {
     mountLogin();
     addHistoryFields();
+    setupCsvExports();
     document.head.insertAdjacentHTML('beforeend', '<style>.history-list{margin-top:10px;padding:10px;background:#f5f7fb;border-radius:7px;max-height:175px;overflow:auto}.history-list b,.history-list small{font-size:12px;color:#536078}.history-list article{padding:8px 0;border-bottom:1px solid #e5eaf1}.history-list article:last-child{border:0}.history-list p{margin:3px 0 0;font-weight:400;color:#172033}</style>');
     document.addEventListener('submit', event => { if (event.target.id === 'ticket-form') { event.stopImmediatePropagation(); saveTicket(event); } if (event.target.id === 'project-form') { event.stopImmediatePropagation(); saveProject(event); } }, true);
     const { data: { session } } = await supabaseClient.auth.getSession();
