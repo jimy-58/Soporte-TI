@@ -173,12 +173,50 @@ $('#ticket-form').addEventListener('submit',()=>{const item=$('#ticket-id').valu
 $('#project-form').addEventListener('submit',()=>{const item=$('#project-id').value?projects.find(x=>x.id===$('#project-id').value):projects.at(-1);if(item){item.company=$('#project-company').value;save();}});
 $('#export-tickets').addEventListener('click',event=>{event.stopImmediatePropagation();download(`tickets-${today}.csv`,csv([['Folio','Empresa','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle'],...tickets.map(x=>[code(x.number),x.company||'',x.subject,x.requester,x.area,x.priority,x.status,x.date,x.notes])]));},{capture:true});
 $('#download-report').addEventListener('click',event=>{event.stopImmediatePropagation();const from=$('#report-from').value,to=$('#report-to').value,selected=tickets.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));const rows=[['REPORTE DE ACTIVIDADES TI'],['Periodo',`${from||'Inicio'} a ${to||'Hoy'}`],[],['TICKETS'],['Folio','Empresa','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle'],...selected.map(x=>[code(x.number),x.company||'',x.subject,x.requester,x.area,x.priority,x.status,x.date,x.notes]),[],['PROYECTOS'],['Proyecto','Empresa','Tipo','Responsable','Avance','Estado','Fecha estimada','Último avance'],...projects.map(x=>[x.name,x.company||'',x.type,x.owner,`${x.progress}%`,x.status,x.date,x.update])];download(`reporte-soporte-ti-${today}.csv`,csv(rows));},{capture:true});
-//render();
-// resto del código... 
-//                                         }
-//loadTicketsFromSupabase();
-//window.addEventListener('DOMContentLoaded', () => { loadTicketsFromSupabase(); });
-window.addEventListener('DOMContentLoaded', async () => {
+let currentRole = null;
+
+function mountLogin() {
+    document.head.insertAdjacentHTML('beforeend', '<style>.login-screen{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:linear-gradient(135deg,#0d1b32,#1e3c70);padding:22px}.login-card{width:min(420px,100%);padding:34px;background:#fff;border-radius:16px;box-shadow:0 24px 70px #06112480}.login-brand{display:flex;align-items:center;gap:11px;color:#12213b;font:600 20px Outfit}.login-brand small{display:block;color:#6c778b;font:400 12px DM Sans;margin-top:3px}.login-card h1{margin:29px 0 5px}.login-card p{color:#6c778b;margin:0 0 22px}.login-card label{display:grid;gap:6px;color:#536078;font-size:13px;font-weight:600;margin:14px 0}.login-card .primary{width:100%;margin-top:9px}.login-error{color:#c23e4c!important;min-height:18px;margin:3px 0 0!important;font-size:13px}.logout-button{margin-left:auto}.is-supervisor #new-item,.is-supervisor #new-project{display:none}.is-supervisor .project-card,.is-supervisor tr[data-id]{cursor:default}</style>');
+    document.body.insertAdjacentHTML('afterbegin', `<section class="login-screen" id="login-screen"><form class="login-card" id="login-form"><div class="login-brand"><span class="brand-mark">S</span><div><b>Soporte TI</b><small>Acceso al portal de actividades</small></div></div><h1>Iniciar sesión</h1><p>Ingresa con tu cuenta autorizada.</p><label>Correo electrónico<input id="login-email" type="email" required autocomplete="email" placeholder="nombre@empresa.com" /></label><label>Contraseña<input id="login-password" type="password" required autocomplete="current-password" placeholder="••••••••" /></label><p class="login-error" id="login-error" role="alert"></p><button class="primary" type="submit">Entrar</button></form></section>`);
+    $('#login-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        $('#login-error').textContent = '';
+        const { error } = await supabaseClient.auth.signInWithPassword({ email: $('#login-email').value.trim(), password: $('#login-password').value });
+        if (error) $('#login-error').textContent = 'Correo o contraseña incorrectos.';
+    });
+    document.querySelector('header').insertAdjacentHTML('beforeend', '<button class="secondary logout-button" id="logout-button">Cerrar sesión</button>');
+    $('#logout-button').onclick = () => supabaseClient.auth.signOut();
+}
+
+async function applySession(session) {
+    const login = $('#login-screen');
+    if (!session) {
+        currentRole = null;
+        document.body.classList.remove('authenticated', 'is-admin', 'is-supervisor');
+        login.hidden = false;
+        return;
+    }
+    const { data: profile, error } = await supabaseClient.from('profiles').select('role,email').eq('id', session.user.id).single();
+    if (error || !['admin', 'supervisor'].includes(profile?.role)) {
+        await supabaseClient.auth.signOut();
+        $('#login-error').textContent = 'Tu cuenta no cuenta con un rol autorizado.';
+        return;
+    }
+    currentRole = profile.role;
+    document.body.classList.add('authenticated', `is-${currentRole}`);
+    login.hidden = true;
+    $('#logout-button').textContent = `Cerrar sesión (${profile.email})`;
     await loadTicketsFromSupabase();
     await loadProjectsFromSupabase();
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+    mountLogin();
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    await applySession(session);
+    supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => applySession(session), 0); });
+    document.addEventListener('click', event => {
+        if (currentRole === 'admin') return;
+        if (event.target.closest('tr[data-id],.project-card[data-id]')) { event.preventDefault(); event.stopImmediatePropagation(); }
+    }, true);
 });
