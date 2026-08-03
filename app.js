@@ -91,7 +91,7 @@ function openTicket(item) { const f=$('#ticket-form'); f.reset(); $('#ticket-id'
 function openProject(item) { const f=$('#project-form'); f.reset(); $('#project-id').value=item?.id||''; ['name','type','owner','progress','status','date','update'].forEach(k=> $(`#project-${k}`).value=item?.[k] ?? (k==='type'?'Base de datos':k==='progress'?0:k==='status'?'Planeación':'')); $('#project-dialog').showModal(); }
 function escapeHtml(v='') { const d=document.createElement('div'); d.textContent=v; return d.innerHTML; }
 function csv(rows) { return rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n'); }
-function download(name, content) { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([`\ufeff${content}`],{type:'text/csv;charset=utf-8'})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+function download(name, content) { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([`\ufeff${content.replaceAll('"Área"','"Equipo"')}`],{type:'text/csv;charset=utf-8'})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
 
 $('#today').textContent = new Intl.DateTimeFormat('es-MX',{weekday:'long', day:'numeric', month:'long'}).format(new Date());
 document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.nav-item,.view').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $(`#${b.dataset.view}`).classList.add('active'); $('#view-title').textContent={dashboard:'Resumen de actividades',tickets:'Tickets de soporte',projects:'Avance de proyectos',reports:'Reportes'}[b.dataset.view]; $('#new-item').style.display=b.dataset.view==='projects'?'none':''; });
