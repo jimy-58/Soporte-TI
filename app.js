@@ -228,11 +228,12 @@ async function saveProject(event) {
 async function observationMap(table, foreignKey) {
     const { data, error } = await supabaseClient.from(table).select(`${foreignKey},comment,created_at`).order('created_at', { ascending: true });
     if (error) { console.error(`Error cargando ${table}:`, error); return new Map(); }
-    return data.reduce((map, row) => {
+    const grouped = data.reduce((map, row) => {
         const entry = `${fmt(row.created_at.slice(0, 10))} ${new Date(row.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}: ${row.comment}`;
-        map.set(row[foreignKey], [...(map.get(row[foreignKey]) || []), entry].join('\n'));
+        map.set(row[foreignKey], [...(map.get(row[foreignKey]) || []), entry]);
         return map;
     }, new Map());
+    return new Map([...grouped].map(([recordId, entries]) => [recordId, entries.join('\n')]));
 }
 
 function setupCsvExports() {
