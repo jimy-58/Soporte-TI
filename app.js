@@ -193,10 +193,11 @@ async function loadHistory(table, foreignKey, recordId, target) {
     $(target).innerHTML = data.length ? `<b>Historial</b>${data.map(row => `<article><small>${fmt(row.created_at.slice(0,10))} · ${new Date(row.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</small><p>${escapeHtml(row.comment)}</p></article>`).join('')}` : '<small>Aún no hay observaciones.</small>';
 }
 
+function setReadOnly(formId, saveButtonId, readOnly) { const form=$(formId); form.querySelectorAll('input,select,textarea').forEach(field=>field.disabled=readOnly); $(saveButtonId).hidden=readOnly; }
 const baseOpenTicket = openTicket;
-openTicket = async item => { baseOpenTicket(item); $('#ticket-company').value = item?.company || ''; $('#ticket-observation').value = ''; await loadHistory('ticket_updates', 'ticket_folio', item?.id, '#ticket-history'); };
+openTicket = async item => { baseOpenTicket(item); $('#ticket-company').value = item?.company || ''; $('#ticket-observation').value = ''; const readOnly=currentRole==='supervisor'; setReadOnly('#ticket-form','#save-ticket',readOnly); if(readOnly) $('#ticket-dialog-title').textContent='Detalle del ticket'; await loadHistory('ticket_updates', 'ticket_folio', item?.id, '#ticket-history'); };
 const baseOpenProject = openProject;
-openProject = async item => { baseOpenProject(item); $('#project-company').value = item?.company || ''; $('#project-date').value = item?.eta || item?.date || ''; $('#project-observation').value = ''; await loadHistory('project_updates', 'project_name', item?.id, '#project-history'); };
+openProject = async item => { baseOpenProject(item); $('#project-company').value = item?.company || ''; $('#project-date').value = item?.eta || item?.date || ''; $('#project-observation').value = ''; const readOnly=currentRole==='supervisor'; setReadOnly('#project-form','#save-project',readOnly); if(readOnly) $('#project-dialog h2').textContent='Detalle del proyecto'; await loadHistory('project_updates', 'project_name', item?.id, '#project-history'); };
 
 async function saveTicket(event) {
     event.preventDefault();
@@ -297,8 +298,4 @@ window.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await supabaseClient.auth.getSession();
     await applySession(session);
     supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => applySession(session), 0); });
-    document.addEventListener('click', event => {
-        if (currentRole === 'admin') return;
-        if (event.target.closest('tr[data-id],.project-card[data-id]')) { event.preventDefault(); event.stopImmediatePropagation(); }
-    }, true);
 });
