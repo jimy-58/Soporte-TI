@@ -233,15 +233,19 @@ async function observationMap(table, foreignKey) {
         map.set(row[foreignKey], [...(map.get(row[foreignKey]) || []), entry]);
         return map;
     }, new Map());
-    return new Map([...grouped].map(([recordId, entries]) => [recordId, entries.join('\n')]));
+    return grouped;
 }
+
+function observationColumns(histories) { return Array.from({ length: Math.max(0, ...[...histories.values()].map(entries => entries.length)) }, (_, index) => `Observación ${index + 1}`); }
+function observationCells(histories, recordId, length) { const entries = histories.get(recordId) || []; return [...entries, ...Array(Math.max(0, length - entries.length)).fill('')]; }
 
 function setupCsvExports() {
     const ticketsButton = $('#export-tickets');
     ticketsButton.replaceWith(ticketsButton.cloneNode(true));
     $('#export-tickets').onclick = async () => {
         const histories = await observationMap('ticket_updates', 'ticket_folio');
-        download(`tickets-${today}.csv`, csv([['Folio','Empresa','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle','Observaciones'], ...tickets.map(ticket => [code(ticket.number),ticket.company||'',ticket.subject,ticket.requester,ticket.area,ticket.priority,ticket.status,ticket.date,ticket.notes,histories.get(ticket.id)||''])]));
+        const observationHeaders = observationColumns(histories);
+        download(`tickets-${today}.csv`, csv([['Folio','Empresa','Asunto','Solicitante','Equipo','Prioridad','Estado','Fecha','Detalle',...observationHeaders], ...tickets.map(ticket => [code(ticket.number),ticket.company||'',ticket.subject,ticket.requester,ticket.area,ticket.priority,ticket.status,ticket.date,ticket.notes,...observationCells(histories,ticket.id,observationHeaders.length)])]));
     };
     const reportButton = $('#download-report');
     reportButton.replaceWith(reportButton.cloneNode(true));
@@ -249,9 +253,33 @@ function setupCsvExports() {
         const from = $('#report-from').value, to = $('#report-to').value;
         const selectedTickets = tickets.filter(ticket => (!from || ticket.date >= from) && (!to || ticket.date <= to));
         const [ticketHistories, projectHistories] = await Promise.all([observationMap('ticket_updates', 'ticket_folio'), observationMap('project_updates', 'project_name')]);
-        const rows = [['REPORTE DE ACTIVIDADES TI'],['Periodo',`${from||'Inicio'} a ${to||'Hoy'}`],[],['TICKETS'],['Folio','Empresa','Asunto','Solicitante','Área','Prioridad','Estado','Fecha','Detalle','Observaciones'],...selectedTickets.map(ticket=>[code(ticket.number),ticket.company||'',ticket.subject,ticket.requester,ticket.area,ticket.priority,ticket.status,ticket.date,ticket.notes,ticketHistories.get(ticket.id)||'']),[],['PROYECTOS'],['Proyecto','Empresa','Tipo','Responsable','Avance','Estado','Fecha estimada','Último avance','Observaciones'],...projects.map(project=>[project.name,project.company||'',project.type,project.owner,`${project.progress}%`,project.status,project.eta||project.date,project.update,projectHistories.get(project.id)||''])];
+        const ticketColumns = observationColumns(ticketHistories), projectColumns = observationColumns(projectHistories);
+        const rows = [['REPORTE DE ACTIVIDADES TI'],['Periodo',`${from||'Inicio'} a ${to||'Hoy'}`],[],['TICKETS'],['Folio','Empresa','Asunto','Solicitante','Equipo','Prioridad','Estado','Fecha','Detalle',...ticketColumns],...selectedTickets.map(ticket=>[code(ticket.number),ticket.company||'',ticket.subject,ticket.requester,ticket.area,ticket.priority,ticket.status,ticket.date,ticket.notes,...observationCells(ticketHistories,ticket.id,ticketColumns.length)]),[],['PROYECTOS'],['Proyecto','Empresa','Tipo','Responsable','Avance','Estado','Fecha estimada','Último avance',...projectColumns],...projects.map(project=>[project.name,project.company||'',project.type,project.owner,`${project.progress}%`,project.status,project.eta||project.date,project.update,...observationCells(projectHistories,project.id,projectColumns.length)])];
         download(`reporte-soporte-ti-${today}.csv`, csv(rows));
     };
+    const pdfButton = document.createElement('button');
+    pdfButton.className = 'secondary'; pdfButton.id = 'download-pdf'; pdfButton.textContent = 'Descargar reporte PDF';
+    $('#download-report').after(pdfButton);
+    pdfButton.onclick = downloadPdfReport;
+}
+
+async function ensureJsPdf() {
+    if (window.jspdf) return window.jspdf.jsPDF;
+    await new Promise((resolve, reject) => { const script=document.createElement('script'); script.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'; script.onload=resolve; script.onerror=reject; document.head.appendChild(script); });
+    return window.jspdf.jsPDF;
+}
+
+async function downloadPdfReport() {
+    try {
+        const JsPDF = await ensureJsPdf(); const pdf = new JsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+        const from=$('#report-from').value, to=$('#report-to').value, selected=tickets.filter(ticket=>(!from||ticket.date>=from)&&(!to||ticket.date<=to));
+        const resolved=selected.filter(ticket=>ticket.status==='Resuelto').length, active=selected.length-resolved, projectsActive=projects.filter(project=>project.status!=='Completado').length;
+        pdf.setFillColor(18,33,59); pdf.rect(0,0,297,34,'F'); pdf.setTextColor(255,255,255); pdf.setFontSize(22); pdf.text('Reporte de actividades TI',15,16); pdf.setFontSize(10); pdf.text(`Periodo: ${from||'Inicio'} a ${to||'Hoy'}`,15,24);
+        [[`Tickets`,selected.length],[`Resueltos`,resolved],[`Activos`,active],[`Proyectos activos`,projectsActive]].forEach(([label,value],index)=>{const x=15+index*67;pdf.setFillColor(234,242,255);pdf.roundedRect(x,43,59,25,3,3,'F');pdf.setTextColor(23,32,51);pdf.setFontSize(9);pdf.text(label,x+5,52);pdf.setFontSize(18);pdf.text(String(value),x+5,63);});
+        const statuses=['Abierto','En proceso','En espera','Resuelto']; pdf.setFontSize(14); pdf.text('Tickets por estado',15,82); statuses.forEach((status,index)=>{const count=selected.filter(ticket=>ticket.status===status).length;const width=selected.length?count/selected.length*150:0;const y=91+index*12;pdf.setFontSize(9);pdf.text(`${status}: ${count}`,15,y);pdf.setFillColor(229,234,241);pdf.rect(58,y-4,150,5,'F');pdf.setFillColor(34,108,224);pdf.rect(58,y-4,width,5,'F');});
+        pdf.setFontSize(14);pdf.setTextColor(23,32,51);pdf.text('Avance de proyectos',15,151); projects.forEach((project,index)=>{if(index>8)return;const y=160+index*12;pdf.setFontSize(9);pdf.text(project.name.slice(0,65),15,y);pdf.text(`${project.progress}% · ${project.status}`,190,y);pdf.setFillColor(229,234,241);pdf.rect(225,y-4,55,5,'F');pdf.setFillColor(67,170,139);pdf.rect(225,y-4,55*Math.min(100,project.progress)/100,5,'F');});
+        pdf.setTextColor(108,119,139);pdf.setFontSize(8);pdf.text('Generado desde el portal Soporte TI',15,198); pdf.save(`reporte-soporte-ti-${today}.pdf`);
+    } catch (error) { console.error(error); alert('No fue posible generar el PDF. Revisa tu conexión e inténtalo nuevamente.'); }
 }
 
 function mountLogin() {
