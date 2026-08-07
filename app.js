@@ -247,6 +247,10 @@ function setupCsvExports() {
         const observationHeaders = observationColumns(histories);
         download(`tickets-${today}.csv`, csv([['Folio','Empresa','Asunto','Solicitante','Equipo','Prioridad','Estado','Fecha','Detalle',...observationHeaders], ...tickets.map(ticket => [code(ticket.number),ticket.company||'',ticket.subject,ticket.requester,ticket.area,ticket.priority,ticket.status,ticket.date,ticket.notes,...observationCells(histories,ticket.id,observationHeaders.length)])]));
     };
+    const ticketsPdfButton = document.createElement('button');
+    ticketsPdfButton.className = 'secondary'; ticketsPdfButton.id = 'download-tickets-pdf'; ticketsPdfButton.textContent = 'Descargar tickets PDF';
+    $('#export-tickets').after(ticketsPdfButton);
+    ticketsPdfButton.onclick = downloadTicketsPdf;
     const reportButton = $('#download-report');
     reportButton.replaceWith(reportButton.cloneNode(true));
     $('#download-report').onclick = async () => {
@@ -280,6 +284,23 @@ async function downloadPdfReport() {
         pdf.setFontSize(14);pdf.setTextColor(23,32,51);pdf.text('Avance de proyectos',15,151); projects.forEach((project,index)=>{if(index>8)return;const y=160+index*12;pdf.setFontSize(9);pdf.text(project.name.slice(0,65),15,y);pdf.text(`${project.progress}% · ${project.status}`,190,y);pdf.setFillColor(229,234,241);pdf.rect(225,y-4,55,5,'F');pdf.setFillColor(67,170,139);pdf.rect(225,y-4,55*Math.min(100,project.progress)/100,5,'F');});
         pdf.setTextColor(108,119,139);pdf.setFontSize(8);pdf.text('Generado desde el portal Soporte TI',15,198); pdf.save(`reporte-soporte-ti-${today}.pdf`);
     } catch (error) { console.error(error); alert('No fue posible generar el PDF. Revisa tu conexión e inténtalo nuevamente.'); }
+}
+
+async function downloadTicketsPdf() {
+    try {
+        const JsPDF = await ensureJsPdf(); const pdf = new JsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+        const search=$('#ticket-search').value.toLowerCase(), status=$('#ticket-status-filter').value;
+        const list=tickets.filter(ticket=>(!status||ticket.status===status)&&`${ticket.subject} ${ticket.requester} ${ticket.area} ${code(ticket.number)}`.toLowerCase().includes(search));
+        const histories=await observationMap('ticket_updates','ticket_folio'); const resolved=list.filter(ticket=>ticket.status==='Resuelto').length;
+        const header=()=>{pdf.setFillColor(18,33,59);pdf.rect(0,0,297,28,'F');pdf.setTextColor(255,255,255);pdf.setFontSize(19);pdf.text('Reporte de tickets TI',15,15);pdf.setFontSize(9);pdf.text(`Generado: ${fmt(today)} · ${list.length} tickets · ${resolved} resueltos`,15,22);};
+        header(); let y=38; pdf.setTextColor(23,32,51);
+        for(const ticket of list){
+            const observations=histories.get(ticket.id)||[]; const lines=[`Folio: ${code(ticket.number)}  |  Empresa: ${ticket.company||'Sin empresa'}  |  Estado: ${ticket.status}  |  Prioridad: ${ticket.priority}`,`Asunto: ${ticket.subject}`,`Solicitante: ${ticket.requester}  |  Equipo: ${ticket.area||'Sin especificar'}  |  Fecha: ${fmt(ticket.date)}`,...pdf.splitTextToSize(`Detalle: ${ticket.notes||'Sin detalle.'}`,260),...observations.flatMap((observation,index)=>pdf.splitTextToSize(`Observación ${index+1}: ${observation}`,260))];
+            const height=lines.length*4.6+8; if(y+height>190){pdf.addPage();header();y=38;} pdf.setFillColor(245,247,251);pdf.roundedRect(12,y-4,273,height,2,2,'F');pdf.setFontSize(9);lines.forEach(line=>{pdf.text(line,16,y);y+=4.6;});y+=5;
+        }
+        if(!list.length){pdf.setFontSize(12);pdf.text('No hay tickets que coincidan con los filtros seleccionados.',15,42);}
+        pdf.save(`tickets-soporte-ti-${today}.pdf`);
+    } catch(error) { console.error(error); alert('No fue posible generar el PDF de tickets.'); }
 }
 
 function mountLogin() {
